@@ -1,0 +1,164 @@
+---
+title: "Johnny Rodriguez Project 2"
+author: "Johnny Rodriguez"
+date: "2022-10-10"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE, warning = FALSE, message = FALSE)
+```
+
+## Prepare Environment
+Loads the libraries
+
+```{r}
+library (dplyr)
+library(tidyr)
+library(lubridate)
+library(stringr)
+library (ggplot2)
+```
+
+## NY Times Bestsellers for Manga Books
+This data looks at Manga books from the New York Times Best Seller list from 2010-2017.  The data is transformed through a series of step for further analysis.
+
+
+```{r}
+
+# Imports the CSV of all bestsellters
+nytbestsellers <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/nytbestsellers.csv", header = TRUE, sep = ',', na.strings="", fill = TRUE)
+knitr::kable(head(nytbestsellers))
+
+# Filters the initial large best sellers list for manga books and a subset of columns to make the data more manageable
+nytmanga <- nytbestsellers %>% 
+  filter(list_name_encoded == "manga") %>% 
+  select(published_date, list_name_encoded, rank, title, author, price, weeks_on_list )
+
+
+# Converts the character date columns into a real date column; adds a separate column that permits a yearly plot by using the floor date function.
+nytmanga <- nytmanga %>% 
+  mutate(published_date = ymd(published_date),
+         pubfloordate = floor_date(published_date, unit = "year" ))
+
+
+# Converts the book title column into separate columns to split between the main title and the volume number.
+nytmanga <- nytmanga %>%
+  mutate(main_title = ifelse(str_detect(title, 'VOL.'),
+                      str_match(title, '(.*),\\sVOL.')[,2],
+                      title),
+         VolumeNo = str_match(title, 'VOL.\\s{1,}(\\d+)')[,2])
+
+# Splits the author column into a first and second author if one was noted.
+nytmanga <- nytmanga %>%
+  separate(col = author, sep = ' and ', into = c('first_author', 'second_author'), remove = FALSE)
+
+knitr::kable(head(nytmanga))
+```
+
+#### Conclusion - Manga Best Sellers
+Between 2010-2017, the  majority of Mango books spent about 1.25 weeks on the NYT Best Seller list.  The number of manga books on the best seller list for at least 1 week peaked in 2012.
+
+
+```{r}
+
+ggplot(nytmanga, aes(x=weeks_on_list)) + geom_bar() +
+  ggtitle("Manga NYT Best Sellers Number of Weeks on List By Year 2010 - 2017")+
+  scale_x_continuous(limits = c(0,10)) +
+  facet_wrap(~pubfloordate)
+
+```
+
+## Global Happiness Scores 2015-2022
+This data looks at the global happiness score between 2015 - 2022.  This information is available on a number of csv files that required joining and transformation.
+
+
+
+```{r}
+# Imports the Happiness data for each year
+happy2015 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2015.csv", na.strings=c("","NA"))
+happy2016 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2016.csv", na.strings=c("","NA"))
+happy2017 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2017.csv", na.strings=c("","NA"))
+happy2018 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2018.csv", na.strings=c("","NA"))
+happy2019 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2019.csv", na.strings=c("","NA"))
+happy2020 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2020.csv", na.strings=c("","NA"))
+happy2021 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2021.csv", na.strings=c("","NA"))
+happy2022 <- read.csv("https://raw.githubusercontent.com/johnnydrodriguez/data607_project2/main/2022.csv", na.strings=c("","NA"))
+
+# Example yearly happiness data
+knitr::kable(head(happy2015))
+
+# Selects the happiness score from 2015 to create global happiness data frame; the data will only look at the happiness score  per country.
+globalhappy <- happy2015 %>% 
+  select(Country, Happiness.Score) %>%
+  rename(Happiness.Score.2015 = Happiness.Score) %>% 
+  
+# Joins the 2016 happiness score.
+  full_join(happy2016, by = 'Country') %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score) %>%
+  rename(Happiness.Score.2016 = Happiness.Score) %>% 
+  
+# Joins the 2017 happiness score.  
+  full_join(happy2017, by = 'Country') %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score.2016,Happiness.Score) %>%
+  rename(Happiness.Score.2017 = Happiness.Score) %>% 
+  
+# In 2018, the column names change.  Joins based on new country and new score column names.  
+  full_join(happy2018, by = c("Country" = "Country.or.region")) %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score.2016,Happiness.Score.2017, Score) %>%
+  rename(Happiness.Score.2018 = Score) %>%
+  
+# Joins 2019 data keeping the 2018 column names format.
+  full_join(happy2019, by = c("Country" = "Country.or.region")) %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score.2016,Happiness.Score.2017,Happiness.Score.2018, Score) %>%
+  rename(Happiness.Score.2019 = Score) %>%
+  
+# In 2020, the column names for country and score change again.  Joins the 2020 happiness score.  
+  full_join(happy2020, by = c("Country" = "Country.name")) %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score.2016,Happiness.Score.2017,Happiness.Score.2018, Happiness.Score.2019, Ladder.score) %>%
+  rename(Happiness.Score.2020 = Ladder.score) %>% 
+
+# Joins 2021 happiness dta keeping the 2020 column name format    
+  full_join(happy2021, by = c("Country" = "Country.name")) %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score.2016,Happiness.Score.2017,Happiness.Score.2018, Happiness.Score.2019, Happiness.Score.2020, Ladder.score) %>%
+  rename(Happiness.Score.2021 = Ladder.score) %>% 
+  
+# In 2022, the column names for country and score change again.  Joins the 2022 happiness score. 
+  full_join(happy2022, by = 'Country') %>% 
+  select(Country, Happiness.Score.2015, Happiness.Score.2016,Happiness.Score.2017,Happiness.Score.2018, Happiness.Score.2019, Happiness.Score.2020, Happiness.Score.2021, Happiness.score) %>%
+  rename(Happiness.Score.2022 = Happiness.score)
+
+# In 2022, the Happiness score format is changed to include a comma instead of a decimals.  The values are converted to numeric and then changed to the same scale as the previous years.
+globalhappy$Happiness.Score.2022 <- as.numeric(gsub(",","", globalhappy$Happiness.Score.2022))
+globalhappy <- globalhappy %>% 
+  mutate(Happiness.Score.2022 = Happiness.Score.2022 / 1000)
+
+# The average happines score for each country is calculated and NAN value is removed.
+globalhappy <- globalhappy %>% 
+  mutate(AvgHappiness = (rowMeans(select(globalhappy, "Happiness.Score.2015", "Happiness.Score.2016","Happiness.Score.2017","Happiness.Score.2018", "Happiness.Score.2019", "Happiness.Score.2020", "Happiness.Score.2021","Happiness.Score.2022"), na.rm = TRUE))) %>% 
+  filter(!is.na(AvgHappiness))
+
+knitr::kable(head(globalhappy))
+
+```
+
+#### Conclusion - Distribution of Global Happiness scores
+
+Average global happiness scores between 2015- 2022 appear to be normally distributed.  To confirm a density plot which places the data below the curve and a QQ distribution line where all of the points appear to fall near the line.
+
+```{r}
+# Mean and Standard Deviation for Average Global Happiness scores
+happymean <- mean(globalhappy$AvgHappiness)
+happysd   <- sd(globalhappy$AvgHappiness)
+happymean
+happysd
+
+#Density Distribtion Plot for Average Happiness score
+ggplot(globalhappy, aes(x = AvgHappiness)) +geom_blank() +geom_histogram(aes(y = ..density..)) +stat_function(fun = dnorm, args = c(mean = happymean, sd = happysd), col = "tomato")
+
+## QQ Distibrution line to evaluate normal distribution of happiness scores
+ggplot(globalhappy, aes(sample = AvgHappiness)) + geom_line(stat = "qq")+ ggtitle("Global Average Happiness QQ Distribution Line")
+
+```
+
+
